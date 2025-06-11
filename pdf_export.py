@@ -1,10 +1,15 @@
 import pdfkit
 import markdown
+import platform
 
-config = pdfkit.configuration(wkhtmltopdf=r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe')
+if platform.system() == 'Windows':
+    # Путь для Windows
+    config = pdfkit.configuration(wkhtmltopdf=r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe')
+else:
+    # Путь по умолчанию для Linux (Render.com)
+    config = pdfkit.configuration(wkhtmltopdf='/usr/bin/wkhtmltopdf')
 
 def itinerary_to_pdf(itinerary_text, filename):
-    # Конвертируем Markdown в HTML
     itinerary_html = markdown.markdown(itinerary_text)
 
     html_template = f"""

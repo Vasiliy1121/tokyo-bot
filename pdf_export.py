@@ -1,48 +1,31 @@
-import pdfkit
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfbase import pdfmetrics
 import markdown
-import platform
+import re
 
-if platform.system() == 'Windows':
-    # Путь для Windows
-    config = pdfkit.configuration(wkhtmltopdf=r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe')
-else:
-    # Путь по умолчанию для Linux (Render.com)
-    config = pdfkit.configuration(wkhtmltopdf='/usr/bin/wkhtmltopdf')
+def clean_markdown(text):
+    text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)  # удаление **
+    text = re.sub(r'\[(.*?)\]\((.*?)\)', r'\1 (\2)', text)  # ссылки
+    return text
 
 def itinerary_to_pdf(itinerary_text, filename):
-    itinerary_html = markdown.markdown(itinerary_text)
+    pdf = canvas.Canvas(filename, pagesize=A4)
+    width, height = A4
 
-    html_template = f"""
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <style>
-            body {{
-                font-family: Arial, sans-serif;
-                padding: 20px;
-                line-height: 1.5;
-            }}
-            h1, h2, h3 {{
-                color: #0056b3;
-                margin-top: 20px;
-            }}
-            ul {{
-                margin-left: 15px;
-                padding-left: 5px;
-            }}
-            li {{
-                margin-bottom: 10px;
-            }}
-            a {{
-                color: #1a73e8;
-                text-decoration: none;
-            }}
-        </style>
-    </head>
-    <body>
-        {itinerary_html}
-    </body>
-    </html>
-    """
+    pdfmetrics.registerFont(TTFont('Arial', 'arialmt.ttf'))
+    pdf.setFont('Arial', 12)
 
-    pdfkit.from_string(html_template, filename, configuration=config)
+    clean_text = clean_markdown(itinerary_text)
+    lines = clean_text.split('\n')
+    y = height - 40
+    for line in lines:
+        if y < 40:
+            pdf.showPage()
+            pdf.setFont('Arial', 12)
+            y = height - 40
+        pdf.drawString(40, y, line.strip())
+        y -= 16
+
+    pdf.save()

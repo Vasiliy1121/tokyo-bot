@@ -1,13 +1,8 @@
-import openai
-import re
-from config import OPENAI_API_KEY
 from openai import OpenAI
-
-import openai
 import re
 from config import OPENAI_API_KEY
 
-openai.api_key = OPENAI_API_KEY
+openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
 async def generate_itinerary(data):
     prompt = f"""
@@ -58,7 +53,7 @@ async def generate_itinerary(data):
     Маршрут должен быть максимально увлекательным, подробным и полезным.  
     """
 
-    response = openai.ChatCompletion.create(
+    response = openai_client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7,
@@ -91,7 +86,7 @@ async def edit_day(current_itinerary, day_number, user_request):
         Используй четкую структуру (📅 День X, 🌅 Утро, 🏙️ День, 🌃 Вечер).
         """
 
-    response = openai.ChatCompletion.create(
+    response = openai_client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7,
@@ -102,9 +97,6 @@ async def edit_day(current_itinerary, day_number, user_request):
     new_itinerary = current_itinerary.replace(day_text, edited_day_text)
 
     return new_itinerary
-
-
-
 
 
 

@@ -67,24 +67,23 @@ async def edit_day(current_itinerary, day_number, user_request):
     return new_itinerary
 
 
+import re
+
 def add_google_maps_links(itinerary_text):
+    # Функция для создания ссылки
     def make_link(place):
         query = place.strip().replace(' ', '+')
         return f"<a href='https://www.google.com/maps/search/?api=1&query={query}'>{place}</a>"
 
-    lines = itinerary_text.split('\n')
-    updated_lines = []
+    # Регулярное выражение, находящее все английские названия мест в тексте
+    pattern = re.compile(r"([A-Z][A-Za-z0-9&'\-\s]{2,}(?:Cafe|Museum|Park|Station|City|Road|Bar|Restaurant|Market|Center|Shrine|Temple|Hall|Tower|Broadway|Garden|Ginza|Akihabara|Ikebukuro|Ueno|Nakano|Animate|Mandarake|Taito|Pokémon|Gundam|Sunshine)[A-Za-z0-9&'\-\s]*)")
 
-    for line in lines:
-        if line.startswith("-"):
-            # Ищем после слов-маркеров места, до запятой или точки
-            line = re.sub(
-                r"(Посетите|Посещение|Экскурсия по|Экскурсия в|Прогулка по|Ужин в|Завтрак в|Обед в|Посетить|Проведите утро в|Зайдите в|Отдохните в|Перекусите в|Рекомендуем кафе|Рекомендуем ресторан|Ресторан|Кафе)\s+([^.,\n]+)",
-                lambda m: f"{m.group(1)} {make_link(m.group(2).strip())}",
-                line, flags=re.IGNORECASE
-            )
-        updated_lines.append(line)
+    # Замена всех найденных названий мест на ссылки
+    def replace(match):
+        place = match.group(1).strip()
+        return make_link(place)
 
-    return '\n'.join(updated_lines)
+    return pattern.sub(replace, itinerary_text)
+
 
 

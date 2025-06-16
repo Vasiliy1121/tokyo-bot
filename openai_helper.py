@@ -1,8 +1,8 @@
-from openai import OpenAI
+import openai
 import re
 import os
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 async def generate_itinerary(data):
     prompt = f"""
@@ -21,7 +21,7 @@ async def generate_itinerary(data):
     Составь подробный маршрут по дням (Утро, День, Вечер). Названия мест на английском, текст на русском.
     """
 
-    response = client.chat.completions.create(
+    response = openai.chat.completions.create(
         model="gpt-4-1106-preview",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7,
@@ -52,7 +52,7 @@ async def edit_day(current_itinerary, day_number, user_request):
     Пересоздай День {day_number}, учтя пожелания, структура (Утро, День, Вечер).
     """
 
-    response = client.chat.completions.create(
+    response = openai.chat.completions.create(
         model="gpt-4-1106-preview",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7,

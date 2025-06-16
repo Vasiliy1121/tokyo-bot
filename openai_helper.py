@@ -67,21 +67,23 @@ async def edit_day(current_itinerary, day_number, user_request):
     return new_itinerary
 
 
+import re
+
 def add_google_maps_links(itinerary_text):
-    # Создаём markdown-ссылку
     def make_link(place):
         query = place.strip().replace(' ', '+')
         return f"[{place}](https://www.google.com/maps/search/?api=1&query={query})"
 
-    # Ищем названия в скобках на английском
-    pattern_brackets = re.compile(r'([А-Яа-яЁё\s]+)\s*\(([\w\s\'&-]+)\)')
+    # Убираем уже существующие URL-ссылки, чтобы не было повторного дублирования
+    itinerary_text = re.sub(r'\[([^\]]+)\]\((https://[^\)]+)\)', r'\1', itinerary_text)
+    itinerary_text = re.sub(r'\(([^\s]+://[^\)]+)\)', '', itinerary_text)
 
-    # Сначала заменяем названия формата "Русское (English)"
+    # Сначала ссылки для формата Русское (English)
+    pattern_brackets = re.compile(r'([А-Яа-яЁё\s]+)\s*\(([A-Za-z0-9&\'\-\s]+)\)')
     itinerary_text = pattern_brackets.sub(lambda m: f"{m.group(1).strip()} ({make_link(m.group(2).strip())})", itinerary_text)
 
-    # Затем находим и добавляем ссылки на отдельные английские названия без скобок
-    english_place_pattern = re.compile(r'\b([A-Z][A-Za-z0-9&\'\-]+\s?(Park|Museum|City|Center|Plaza|Garden|Shrine|Temple|Bridge|Station|Tower|Broadway|Market|Cafe|Restaurant|Hall|Disneyland|DisneySea|Animate|Mandarake|Gundam|Pokémon|Sunshine|Nakano|Asakusa|Akihabara|Ikebukuro|Ueno|Odaiba|Fuji|Miraikan|Sumida|Hibiya|Marunouchi))\b')
-
+    # Затем отдельно английские названия мест, если ещё не были обернуты
+    english_place_pattern = re.compile(r'\b([A-Z][A-Za-z0-9&\'\-]+\s?(Park|Museum|City|Center|Plaza|Garden|Shrine|Temple|Bridge|Station|Tower|Broadway|Market|Cafe|Restaurant|Hall|Disneyland|DisneySea|Animate|Mandarake|Gundam|Pokémon|Sunshine|Nakano|Asakusa|Akihabara|Ikebukuro|Ueno|Odaiba|Fuji|Miraikan|Sumida|Hibiya|Marunouchi|Shibuya|Shinjuku|Harajuku|Omotesando|Tama|Puroland|Kichijoji|Inokashira))\b')
     itinerary_text = english_place_pattern.sub(lambda m: make_link(m.group(1)), itinerary_text)
 
     return itinerary_text

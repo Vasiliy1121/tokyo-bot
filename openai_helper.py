@@ -21,7 +21,8 @@ async def generate_itinerary(data):
     Составь подробный маршрут по дням (Утро, День, Вечер). Названия мест на английском, текст на русском.
     """
 
-    response = openai.chat.completions.create(
+    client = openai.OpenAI()
+    response = client.chat.completions.create(
         model="gpt-4-1106-preview",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7,
@@ -52,7 +53,8 @@ async def edit_day(current_itinerary, day_number, user_request):
     Пересоздай День {day_number}, учтя пожелания, структура (Утро, День, Вечер).
     """
 
-    response = openai.chat.completions.create(
+    client = openai.OpenAI()
+    response = client.chat.completions.create(
         model="gpt-4-1106-preview",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7,

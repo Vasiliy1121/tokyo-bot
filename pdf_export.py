@@ -2,12 +2,11 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfbase import pdfmetrics
-import markdown
 import re
 
 def clean_markdown(text):
-    text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)  # удаление **
-    text = re.sub(r'\[(.*?)\]\((.*?)\)', r'\1 (\2)', text)  # ссылки
+    text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)
+    text = re.sub(r'\[(.*?)\]\((.*?)\)', r'\1 (ссылка: \2)', text)
     return text
 
 def itinerary_to_pdf(itinerary_text, filename):
@@ -20,12 +19,28 @@ def itinerary_to_pdf(itinerary_text, filename):
     clean_text = clean_markdown(itinerary_text)
     lines = clean_text.split('\n')
     y = height - 40
+    line_height = 16
+
     for line in lines:
+        if not line.strip():
+            y -= line_height
+            continue
+
+        if line.startswith("📅"):
+            pdf.setFont('Arial', 14)
+            y -= 10
+        elif line.startswith(("🌅", "🏙️", "🌃")):
+            pdf.setFont('Arial', 13)
+            y -= 6
+        else:
+            pdf.setFont('Arial', 12)
+
         if y < 40:
             pdf.showPage()
             pdf.setFont('Arial', 12)
             y = height - 40
+
         pdf.drawString(40, y, line.strip())
-        y -= 16
+        y -= line_height
 
     pdf.save()

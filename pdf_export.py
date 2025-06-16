@@ -1,46 +1,51 @@
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.units import inch
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfbase import pdfmetrics
 import re
 
+
 def clean_markdown(text):
     text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)
-    text = re.sub(r'\[(.*?)\]\((.*?)\)', r'\1 (ссылка: \2)', text)
+    text = re.sub(r'\[(.*?)\]\((.*?)\)', r'<a href="\2">\1</a>', text)
     return text
 
+
 def itinerary_to_pdf(itinerary_text, filename):
-    pdf = canvas.Canvas(filename, pagesize=A4)
-    width, height = A4
-
     pdfmetrics.registerFont(TTFont('Arial', 'arialmt.ttf'))
-    pdf.setFont('Arial', 12)
 
-    clean_text = clean_markdown(itinerary_text)
-    lines = clean_text.split('\n')
-    y = height - 40
-    line_height = 16
+    doc = SimpleDocTemplate(filename, pagesize=A4,
+                            rightMargin=30, leftMargin=30,
+                            topMargin=30, bottomMargin=30)
+
+    styles = getSampleStyleSheet()
+    styles["Normal"].fontName = 'Arial'
+    styles["Normal"].fontSize = 12
+    styles["Normal"].leading = 15
+
+    story = []
+    lines = itinerary_text.split('\n')
 
     for line in lines:
-        if not line.strip():
-            y -= line_height
-            continue
-
         if line.startswith("📅"):
-            pdf.setFont('Arial', 14)
-            y -= 10
+            style = styles["Heading1"]
+            style.fontName = 'Arial'
+            style.fontSize = 16
+            story.append(Spacer(1, 0.15 * inch))
         elif line.startswith(("🌅", "🏙️", "🌃")):
-            pdf.setFont('Arial', 13)
-            y -= 6
+            style = styles["Heading2"]
+            style.fontName = 'Arial'
+            style.fontSize = 14
+            story.append(Spacer(1, 0.1 * inch))
         else:
-            pdf.setFont('Arial', 12)
+            style = styles["Normal"]
 
-        if y < 40:
-            pdf.showPage()
-            pdf.setFont('Arial', 12)
-            y = height - 40
+        line = clean_markdown(line)
+        paragraph = Paragraph(line, style)
+        story.append(paragraph)
+        story.append(Spacer(1, 0.05 * inch))
 
-        pdf.drawString(40, y, line.strip())
-        y -= line_height
-
-    pdf.save()
+    doc.build(story)

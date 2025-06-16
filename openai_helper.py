@@ -67,23 +67,24 @@ async def edit_day(current_itinerary, day_number, user_request):
     return new_itinerary
 
 
-import re
-
 def add_google_maps_links(itinerary_text):
-    # Функция для создания ссылки
+    # Создаём markdown-ссылку
     def make_link(place):
         query = place.strip().replace(' ', '+')
-        return f"<a href='https://www.google.com/maps/search/?api=1&query={query}'>{place}</a>"
+        return f"[{place}](https://www.google.com/maps/search/?api=1&query={query})"
 
-    # Регулярное выражение, находящее все английские названия мест в тексте
-    pattern = re.compile(r"([A-Z][A-Za-z0-9&'\-\s]{2,}(?:Cafe|Museum|Park|Station|City|Road|Bar|Restaurant|Market|Center|Shrine|Temple|Hall|Tower|Broadway|Garden|Ginza|Akihabara|Ikebukuro|Ueno|Nakano|Animate|Mandarake|Taito|Pokémon|Gundam|Sunshine)[A-Za-z0-9&'\-\s]*)")
+    # Ищем названия в скобках на английском
+    pattern_brackets = re.compile(r'([А-Яа-яЁё\s]+)\s*\(([\w\s\'&-]+)\)')
 
-    # Замена всех найденных названий мест на ссылки
-    def replace(match):
-        place = match.group(1).strip()
-        return make_link(place)
+    # Сначала заменяем названия формата "Русское (English)"
+    itinerary_text = pattern_brackets.sub(lambda m: f"{m.group(1).strip()} ({make_link(m.group(2).strip())})", itinerary_text)
 
-    return pattern.sub(replace, itinerary_text)
+    # Затем находим и добавляем ссылки на отдельные английские названия без скобок
+    english_place_pattern = re.compile(r'\b([A-Z][A-Za-z0-9&\'\-]+\s?(Park|Museum|City|Center|Plaza|Garden|Shrine|Temple|Bridge|Station|Tower|Broadway|Market|Cafe|Restaurant|Hall|Disneyland|DisneySea|Animate|Mandarake|Gundam|Pokémon|Sunshine|Nakano|Asakusa|Akihabara|Ikebukuro|Ueno|Odaiba|Fuji|Miraikan|Sumida|Hibiya|Marunouchi))\b')
+
+    itinerary_text = english_place_pattern.sub(lambda m: make_link(m.group(1)), itinerary_text)
+
+    return itinerary_text
 
 
 

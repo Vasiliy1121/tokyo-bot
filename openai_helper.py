@@ -68,25 +68,22 @@ async def edit_day(current_itinerary, day_number, user_request):
 
 
 def add_google_maps_links(itinerary_text):
-    pattern = re.compile(r"(?:🌅|🏙️|🌃)\s(Утро|День|Вечер):?\s*|\-\s*([^\n]+)", re.UNICODE)
-
     def make_link(place):
         query = place.strip().replace(' ', '+')
         return f"<a href='https://www.google.com/maps/search/?api=1&query={query}'>{place}</a>"
 
     lines = itinerary_text.split('\n')
     updated_lines = []
+
     for line in lines:
-        match = pattern.match(line)
-        if match:
-            title, content = match.groups()
-            if content:
-                content = re.sub(r'(?<=в|по|у|на)\s+([\w\s\-]+?)(?=,|\.)', lambda m: f" {make_link(m.group(1))}", content)
-                updated_lines.append(f"- {content}")
-            else:
-                updated_lines.append(line)
-        else:
-            updated_lines.append(line)
+        if line.startswith("-"):
+            # Ищем после слов-маркеров места, до запятой или точки
+            line = re.sub(
+                r"(Посетите|Посещение|Экскурсия по|Экскурсия в|Прогулка по|Ужин в|Завтрак в|Обед в|Посетить|Проведите утро в|Зайдите в|Отдохните в|Перекусите в|Рекомендуем кафе|Рекомендуем ресторан|Ресторан|Кафе)\s+([^.,\n]+)",
+                lambda m: f"{m.group(1)} {make_link(m.group(2).strip())}",
+                line, flags=re.IGNORECASE
+            )
+        updated_lines.append(line)
 
     return '\n'.join(updated_lines)
 

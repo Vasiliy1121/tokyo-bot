@@ -20,7 +20,7 @@ WEBHOOK_URL = os.getenv("RENDER_EXTERNAL_URL")
 async def on_startup():
     await bot.set_webhook(
         f"{WEBHOOK_URL}/webhook",
-        allowed_updates=["message", "callback_query", "inline_query", "my_chat_member", "edited_message"]
+        allowed_updates=["message", "callback_query", "edited_message", "inline_query", "my_chat_member"]
     )
 
 @app.on_event("shutdown")

@@ -28,9 +28,9 @@ async def cmd_start(message: types.Message, state: FSMContext):
 # Сбор количества дней
 @router.message(TripStates.waiting_days)
 async def get_days(message: types.Message, state: FSMContext):
-    """
-    Сохраняет введенное пользователем количество дней в FSM и спрашивает про состав путешественников.
-    """
+    if not message.text.isdigit():
+        return await message.answer("❗️ Пожалуйста, введи число дней цифрами (например, «3»).")
+
     await state.update_data(days=message.text)
     await state.set_state(TripStates.waiting_travelers)
     await message.answer("👥 Кто едет с тобой? (один, пара, семья с детьми, друзья…)")
@@ -72,7 +72,6 @@ async def get_food(message: types.Message, state: FSMContext):
     await message.answer("📌 Есть ли особые пожелания или ограничения?")
 
 # Сбор особых пожеланий и генерация маршрута
-bot = Bot(token=TELEGRAM_TOKEN)
 
 @router.message(TripStates.waiting_special_requests)
 async def get_special_requests(message: types.Message, state: FSMContext, background_tasks: BackgroundTasks):
@@ -88,11 +87,12 @@ async def get_special_requests(message: types.Message, state: FSMContext, backgr
 
 
 async def generate_and_send_itinerary(user_id: int, chat_id: int, data: dict):
+    bot = Bot(token=TELEGRAM_TOKEN)  # создание бота здесь
     try:
         itinerary = await generate_itinerary(data)
 
         itinerary_entry = {
-            'name': f"Маршрут от {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            'name': f"Маршрут от {datetime.datetime.now():%Y-%m-%d %H:%M}",
             'itinerary': itinerary
         }
 
@@ -119,12 +119,11 @@ async def generate_and_send_itinerary(user_id: int, chat_id: int, data: dict):
         storage_key = StorageKey(bot_id=bot.id, chat_id=chat_id, user_id=user_id)
         await bot.session.fsm.storage.set_state(storage_key, None)
         await bot.session.fsm.storage.set_data(storage_key, {})
+        await bot.session.close()
 
 # Обработка нажатия кнопки "Редактировать день"
 @router.callback_query(F.data == "edit_day")
 async def edit_day_handler(callback: types.CallbackQuery):
-    print("⚠️ Сработал обработчик edit_day")
-    await callback.answer()
     user_id = callback.from_user.id
 
     with db:
@@ -132,20 +131,19 @@ async def edit_day_handler(callback: types.CallbackQuery):
 
         if user is None:
             await callback.message.answer("⚠️ Маршрут не найден.")
-            await callback.answer()
-            return
+            return await callback.answer()
 
         itinerary_entry = Route.select().where(Route.user == user).order_by(Route.created_at.desc()).first()
 
         if itinerary_entry is None:
             await callback.message.answer("📌 У тебя пока нет сохранённых маршрутов.")
-            await callback.answer()
-            return
+            return await callback.answer()
 
-        itinerary = itinerary_entry.itinerary  # ← Вот тут явно получаем itinerary из базы
+        itinerary = itinerary_entry.itinerary
 
     await callback.message.answer("Выбери день:", reply_markup=edit_day_keyboard(itinerary))
     await callback.answer()
+
 
 
 
@@ -155,23 +153,20 @@ async def handle_specific_day_edit(callback: types.CallbackQuery, state: FSMCont
     day_number = callback.data.split("_")[-1]
     user_id = callback.from_user.id
 
-    db.connect()
-    user = User.get_or_none(user_id=user_id)
+    with db:
+        user = User.get_or_none(user_id=user_id)
 
-    if user is None:
-        await callback.answer("Маршрут не найден.")
-        db.close()
-        return
+        if user is None:
+            await callback.answer("Маршрут не найден.")
+            return
 
-    itinerary_entry = Route.select().where(Route.user == user).order_by(Route.created_at.desc()).first()
+        itinerary_entry = Route.select().where(Route.user == user).order_by(Route.created_at.desc()).first()
 
-    if itinerary_entry is None:
-        await callback.answer("Маршрут не найден.")
-        db.close()
-        return
+        if itinerary_entry is None:
+            await callback.answer("Маршрут не найден.")
+            return
 
-    itinerary = itinerary_entry.itinerary
-    db.close()
+        itinerary = itinerary_entry.itinerary
 
     await state.update_data(day_to_edit=day_number, itinerary=itinerary)
     await state.set_state(TripStates.editing_day)
@@ -187,24 +182,22 @@ async def process_edit_day(message: types.Message, state: FSMContext):
     day_to_edit = data['day_to_edit']
     user_id = message.from_user.id
 
-    db.connect()
-    user = User.get_or_none(user_id=user_id)
+    with db:
+        user = User.get_or_none(user_id=user_id)
 
-    if user is None:
-        await message.answer("⚠️ Маршрут не найден.")
-        db.close()
-        await state.clear()
-        return
+        if user is None:
+            await message.answer("⚠️ Маршрут не найден.")
+            await state.clear()
+            return
 
-    itinerary_entry = Route.select().where(Route.user == user).order_by(Route.created_at.desc()).first()
+        itinerary_entry = Route.select().where(Route.user == user).order_by(Route.created_at.desc()).first()
 
-    if itinerary_entry is None:
-        await message.answer("⚠️ Маршрут не найден.")
-        db.close()
-        await state.clear()
-        return
+        if itinerary_entry is None:
+            await message.answer("⚠️ Маршрут не найден.")
+            await state.clear()
+            return
 
-    current_itinerary = itinerary_entry.itinerary
+        current_itinerary = itinerary_entry.itinerary
 
     await message.answer(f"⏳ Меняю День {day_to_edit} — это займёт около минуты…")
 
@@ -215,7 +208,6 @@ async def process_edit_day(message: types.Message, state: FSMContext):
         itinerary_entry.itinerary = new_itinerary
         itinerary_entry.save()
 
-        db.close()
 
         messages = split_message(new_itinerary)
 
@@ -227,7 +219,6 @@ async def process_edit_day(message: types.Message, state: FSMContext):
     except Exception as e:
         await message.answer(f"⚠️ Произошла ошибка: {e}")
         print(f"Ошибка при редактировании дня: {e}")
-        db.close()
 
     await state.clear()
 
@@ -243,19 +234,17 @@ async def cancel_handler(message: types.Message, state: FSMContext):
 async def show_saved_routes(message: types.Message):
     user_id = message.from_user.id
 
-    db.connect()
-    user = User.get_or_none(user_id=user_id)
+    with db:
+        user = User.get_or_none(user_id=user_id)
 
     if user is None:
         await message.answer("📌 У тебя пока нет сохранённых маршрутов.")
-        db.close()
         return
 
     routes = Route.select().where(Route.user == user).order_by(Route.created_at.desc())
 
     if not routes.exists():
         await message.answer("📌 У тебя пока нет сохранённых маршрутов.")
-        db.close()
         return
 
     buttons = [
@@ -266,7 +255,6 @@ async def show_saved_routes(message: types.Message):
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
 
     await message.answer("📌 Твои сохранённые маршруты:", reply_markup=keyboard)
-    db.close()
 
 
 
@@ -275,16 +263,14 @@ async def handle_show_route(callback: types.CallbackQuery):
     route_id = int(callback.data.split("_")[-1])
     user_id = callback.from_user.id
 
-    db.connect()
-    route = Route.get_or_none(Route.id == route_id, Route.user.user_id == user_id)
+    with db:
+        route = Route.get_or_none(Route.id == route_id, Route.user.user_id == user_id)
 
     if route is None:
         await callback.answer("⚠️ Маршрут не найден или недоступен.")
-        db.close()
         return
 
     itinerary = route.itinerary
-    db.close()
 
     messages = split_message(itinerary)
     for part in messages[:-1]:
@@ -327,19 +313,17 @@ async def delete_route_handler(callback: types.CallbackQuery):
 async def delete_route_command(message: types.Message):
     user_id = message.from_user.id
 
-    db.connect()
-    user = User.get_or_none(user_id=user_id)
+    with db:
+        user = User.get_or_none(user_id=user_id)
 
     if user is None:
         await message.answer("📌 У тебя пока нет маршрутов для удаления.")
-        db.close()
         return
 
     routes = Route.select().where(Route.user == user).order_by(Route.created_at.desc())
 
     if not routes.exists():
         await message.answer("📌 У тебя пока нет маршрутов для удаления.")
-        db.close()
         return
 
     buttons = [
@@ -349,15 +333,13 @@ async def delete_route_command(message: types.Message):
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
 
     await message.answer("🗑️ Выбери маршрут, который хочешь удалить:", reply_markup=keyboard)
-    db.close()
 
 
 @router.callback_query(F.data == "export_pdf")
 async def export_pdf_callback_handler(callback: types.CallbackQuery):
-    print("⚠️ Сработал обработчик export_pdf")
     await callback.answer("Генерирую PDF...")
-
     user_id = callback.from_user.id
+
     with db:
         user = User.get_or_none(user_id=user_id)
 
@@ -375,10 +357,13 @@ async def export_pdf_callback_handler(callback: types.CallbackQuery):
 
     pdf_filename = f"itinerary_{user_id}.pdf"
     itinerary_to_pdf(itinerary_text, pdf_filename)
-
     pdf_file = FSInputFile(pdf_filename)
-    await callback.message.answer_document(pdf_file)
-    os.remove(pdf_filename)
+
+    try:
+        await callback.message.answer_document(pdf_file)
+    finally:
+        if os.path.exists(pdf_filename):
+            os.remove(pdf_filename)
 
 
 @router.callback_query(F.data.startswith("delete_route_"))
@@ -387,17 +372,15 @@ async def handle_delete_route(callback: types.CallbackQuery):
     await callback.answer()
     route_id = int(callback.data.split("_")[-1])
 
-    db.connect()
-    route = Route.get_or_none(Route.id == route_id)
+    with db:
+        route = Route.get_or_none(Route.id == route_id)
 
     if route is None:
         await callback.answer("⚠️ Маршрут не найден.")
-        db.close()
         return
 
     route_name = route.name
     route.delete_instance()
-    db.close()
 
     await callback.message.answer(f"✅ Маршрут «{route_name}» удалён.")
     await callback.answer()

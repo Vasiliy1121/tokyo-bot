@@ -85,13 +85,13 @@ async def get_special_requests(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     chat_id = message.chat.id
 
-    asyncio.create_task(generate_and_send_itinerary(user_id, chat_id, data))
+    asyncio.create_task(generate_and_send_itinerary(user_id, chat_id, state))
 
 
 
 
-async def generate_and_send_itinerary(user_id, chat_id, state: FSMContext):
-    data = await state.get_data()  # Получаем данные тут!
+async def generate_and_send_itinerary(user_id: int, chat_id: int, state: FSMContext):
+    data = await state.get_data()
 
     try:
         itinerary = await generate_itinerary(data)
@@ -121,7 +121,7 @@ async def generate_and_send_itinerary(user_id, chat_id, state: FSMContext):
         await bot.send_message(chat_id, f"⚠️ Ошибка: {e}")
 
     finally:
-        await state.clear()  # Очищаем FSM только тут
+        await state.clear()  # Очищаем FSM
 
 
 

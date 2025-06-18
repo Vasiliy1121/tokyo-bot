@@ -16,7 +16,8 @@ from pdf_export import itinerary_to_pdf
 from states import TripStates
 from utils import edit_day_keyboard, itinerary_keyboard, split_message
 import asyncio
-from bot_init import bot, dp
+from config import TELEGRAM_TOKEN
+from aiogram import Bot
 
 router = Router()
 user_itineraries = {}  # хранилище маршрутов пользователей
@@ -89,7 +90,7 @@ async def get_special_requests(message: types.Message, state: FSMContext, backgr
 
     await state.clear()
 
-async def generate_and_send_itinerary(user_id: int, chat_id: int, data: dict):
+aasync def generate_and_send_itinerary(user_id: int, chat_id: int, data: dict):
     bot = Bot(token=TELEGRAM_TOKEN)
     try:
         itinerary = await generate_itinerary(data)

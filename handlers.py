@@ -1,16 +1,20 @@
-from aiogram import Router, types, F, Bot
+import datetime
+import os
+
+from fastapi import BackgroundTasks
+
+from aiogram import Bot, F, Router, types
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
-from states import TripStates
-from openai_helper import generate_itinerary, edit_day
-from utils import itinerary_keyboard, edit_day_keyboard
-from utils import split_message
-from db import db, User, Route
-import datetime
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
+from aiogram.fsm.storage.base import StorageKey
+from aiogram.types import FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup
+
+from config import TELEGRAM_TOKEN
+from db import Route, User, db
+from openai_helper import edit_day, generate_itinerary
 from pdf_export import itinerary_to_pdf
-import os
-from fastapi import BackgroundTasks
+from states import TripStates
+from utils import edit_day_keyboard, itinerary_keyboard, split_message
 
 router = Router()
 user_itineraries = {}  # хранилище маршрутов пользователей
@@ -68,6 +72,8 @@ async def get_food(message: types.Message, state: FSMContext):
     await message.answer("📌 Есть ли особые пожелания или ограничения?")
 
 # Сбор особых пожеланий и генерация маршрута
+bot = Bot(token=TELEGRAM_TOKEN)
+
 @router.message(TripStates.waiting_special_requests)
 async def get_special_requests(message: types.Message, state: FSMContext, background_tasks: BackgroundTasks):
     await state.update_data(special_requests=message.text)
@@ -75,11 +81,13 @@ async def get_special_requests(message: types.Message, state: FSMContext, backgr
 
     await message.answer("⏳ Пожалуйста, подожди примерно 1–2 минуты — я генерирую твой подробный маршрут по Токио…")
 
-    # Запускаем фоновую задачу, передаём state
-    background_tasks.add_task(generate_and_send_itinerary, bot, message.from_user.id, data, state)
+    user_id = message.from_user.id
+    chat_id = message.chat.id
+
+    background_tasks.add_task(generate_and_send_itinerary, user_id, chat_id, data)
 
 
-async def generate_and_send_itinerary(bot: Bot, user_id: int, data: dict, state: FSMContext):
+async def generate_and_send_itinerary(user_id: int, chat_id: int, data: dict):
     try:
         itinerary = await generate_itinerary(data)
 
@@ -100,16 +108,17 @@ async def generate_and_send_itinerary(bot: Bot, user_id: int, data: dict, state:
         messages = split_message(itinerary)
 
         for part in messages[:-1]:
-            await bot.send_message(user_id, part, parse_mode="Markdown")
+            await bot.send_message(chat_id, part, parse_mode="Markdown")
 
-        await bot.send_message(user_id, messages[-1], reply_markup=itinerary_keyboard(), parse_mode="Markdown")
+        await bot.send_message(chat_id, messages[-1], reply_markup=itinerary_keyboard(), parse_mode="Markdown")
 
     except Exception as e:
-        await bot.send_message(user_id, f"⚠️ Произошла ошибка: {e}")
+        await bot.send_message(chat_id, f"⚠️ Произошла ошибка: {e}")
 
     finally:
-        # Очистка состояния должна быть именно тут, после фоновой задачи
-        await state.clear()
+        storage_key = StorageKey(bot_id=bot.id, chat_id=chat_id, user_id=user_id)
+        await bot.session.fsm.storage.set_state(storage_key, None)
+        await bot.session.fsm.storage.set_data(storage_key, {})
 
 # Обработка нажатия кнопки "Редактировать день"
 @router.callback_query(F.data == "edit_day")

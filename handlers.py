@@ -79,25 +79,50 @@ async def get_food(message: types.Message, state: FSMContext):
 async def get_special_requests(message: types.Message, state: FSMContext, background_tasks: BackgroundTasks):
     await state.update_data(special_requests=message.text)
     data = await state.get_data()
+
+    await message.answer("⏳ Пожалуйста, подожди примерно 1–2 минуты — я генерирую твой подробный маршрут по Токио…")
+
     user_id = message.from_user.id
     chat_id = message.chat.id
 
-    await message.answer("⏳ Генерирую твой маршрут, подожди немного...")
-    await state.clear()  # сразу очисти состояние здесь
     background_tasks.add_task(generate_and_send_itinerary, user_id, chat_id, data)
 
+    # Очистка состояния FSM здесь!
+    await state.clear()
+
+
 async def generate_and_send_itinerary(user_id: int, chat_id: int, data: dict):
-    itinerary = await generate_itinerary(data)
+    bot = Bot(token=TELEGRAM_TOKEN)
+    try:
+        itinerary = await generate_itinerary(data)
 
-    with db:
-        user, _ = User.get_or_create(user_id=user_id)
-        Route.create(user=user, itinerary=itinerary)
+        itinerary_entry = {
+            'name': f"Маршрут от {datetime.datetime.now():%Y-%m-%d %H:%M}",
+            'itinerary': itinerary
+        }
 
-    messages = split_message(itinerary)
-    for part in messages[:-1]:
-        await bot.send_message(chat_id, part, parse_mode="Markdown")
+        with db:
+            user, created = User.get_or_create(user_id=user_id)
+            Route.create(
+                user=user,
+                name=itinerary_entry['name'],
+                itinerary=itinerary,
+                created_at=datetime.datetime.now()
+            )
 
-    await bot.send_message(chat_id, messages[-1], reply_markup=itinerary_keyboard(), parse_mode="Markdown")
+        messages = split_message(itinerary)
+
+        for part in messages[:-1]:
+            await bot.send_message(chat_id, part, parse_mode="Markdown")
+
+        await bot.send_message(chat_id, messages[-1], reply_markup=itinerary_keyboard(), parse_mode="Markdown")
+
+    except Exception as e:
+        await bot.send_message(chat_id, f"⚠️ Произошла ошибка: {e}")
+
+    finally:
+        await bot.session.close()
+
 
 # Обработка нажатия кнопки "Редактировать день"
 @router.callback_query(F.data == "edit_day")

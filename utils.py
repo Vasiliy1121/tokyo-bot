@@ -4,10 +4,11 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 # Клавиатура после генерации маршрута (кнопка для редактирования дня)
 def itinerary_keyboard():
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✏️ Редактировать день", callback_data="edit_day")]
+        [InlineKeyboardButton(text="✏️ Редактировать день", callback_data="edit_day")],
+        [InlineKeyboardButton(text="📥 Экспорт в PDF", callback_data="export_pdf")],
+        [InlineKeyboardButton(text="🗑️ Удалить маршрут", callback_data="delete_route")]
     ])
     return keyboard
-
 # Клавиатура выбора дня для редактирования (генерируется динамически по количеству дней)
 def edit_day_keyboard(itinerary):
     days = re.findall(r'День\s+(\d+)', itinerary)

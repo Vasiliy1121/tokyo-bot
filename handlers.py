@@ -279,6 +279,34 @@ async def handle_show_route(callback: types.CallbackQuery):
     await callback.message.answer(messages[-1], reply_markup=itinerary_keyboard(), parse_mode="Markdown")
     await callback.answer()
 
+@router.callback_query(F.data == "delete_route")
+async def delete_route_handler(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+
+    with db:
+        user = User.get_or_none(user_id=user_id)
+
+        if user is None:
+            await callback.message.answer("📌 У тебя пока нет маршрутов для удаления.")
+            await callback.answer()
+            return
+
+        routes = Route.select().where(Route.user == user).order_by(Route.created_at.desc())
+
+        if not routes.exists():
+            await callback.message.answer("📌 У тебя пока нет маршрутов для удаления.")
+            await callback.answer()
+            return
+
+        buttons = [
+            [InlineKeyboardButton(text=f"🗑️ {route.name}", callback_data=f"delete_route_{route.id}")]
+            for route in routes
+        ]
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+
+    await callback.message.answer("🗑️ Выбери маршрут, который хочешь удалить:", reply_markup=keyboard)
+    await callback.answer()
 
 
 @router.message(Command("delete_route"))

@@ -80,15 +80,13 @@ async def get_special_requests(message: types.Message, state: FSMContext):
     await state.update_data(special_requests=message.text)
     data = await state.get_data()
 
-    await message.answer("⏳ Пожалуйста, подожди примерно 1–2 минуты — я генерирую твой подробный маршрут по Токио…")
+    await message.answer("⏳ Подожди 1–2 минуты — генерирую маршрут...")
 
     user_id = message.from_user.id
     chat_id = message.chat.id
 
-    # запускаем асинхронную задачу через asyncio.create_task
     asyncio.create_task(generate_and_send_itinerary(user_id, chat_id, data))
 
-    # Очистка состояния FSM здесь!
     await state.clear()
 
 

@@ -15,7 +15,7 @@ dp.include_router(router)
 # FastAPI приложение
 app = FastAPI()
 
-WEBHOOK_URL = os.getenv("RENDER_EXTERNAL_URL")  
+WEBHOOK_URL = os.getenv("RENDER_EXTERNAL_URL")
 
 @app.on_event("startup")
 async def on_startup():
@@ -28,6 +28,7 @@ async def on_shutdown():
 @app.post("/webhook")
 async def webhook(update: dict):
     telegram_update = types.Update(**update)
+    print(f"🔵 Получен запрос от Telegram: {telegram_update.json(indent=4)}")
     await dp.feed_update(bot, telegram_update)
     return {"ok": True}
 

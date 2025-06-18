@@ -29,12 +29,10 @@ async def on_shutdown():
     await bot.delete_webhook()
 
 @app.post("/webhook")
-async def webhook(request: Request, background_tasks: BackgroundTasks):
+async def webhook(request: Request):
     update_json = await request.json()
     update = types.Update(**update_json)
-
-    # Передача background_tasks в state бота (Aiogram)
-    await dp.feed_update(bot, update, background_tasks=background_tasks)
+    await dp.feed_update(bot, update)
     return {"ok": True}
 
 if __name__ == "__main__":

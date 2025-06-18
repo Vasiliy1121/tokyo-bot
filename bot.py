@@ -5,12 +5,6 @@ from handlers import router
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.types import BotCommand
 
-# Увеличиваем таймаут до 120 секунд
-session = AiohttpSession(timeout=120)
-bot = Bot(token=TELEGRAM_TOKEN, session=session)
-dp = Dispatcher()
-dp.include_router(router)
-
 
 async def main():
     print("🚀 Бот успешно запущен!")

@@ -1,39 +1,26 @@
 import os
-import json
-from aiogram import Bot, Dispatcher, types
-from aiogram.client.session.aiohttp import AiohttpSession
 from fastapi import FastAPI, Request, BackgroundTasks
 import uvicorn
-from config import TELEGRAM_TOKEN
-from handlers import router
-from telegram_bot import bot
-
-
-session = AiohttpSession(timeout=120)
-
-dp = Dispatcher()
-dp.include_router(router)
+from aiogram.types import Update
+from bot_init import bot, dp
 
 app = FastAPI()
-
 WEBHOOK_URL = os.getenv("RENDER_EXTERNAL_URL")
 
 @app.on_event("startup")
 async def on_startup():
-    await bot.set_webhook(
-        f"{WEBHOOK_URL}/webhook",
-        allowed_updates=["message", "callback_query"]
-    )
+    await bot.set_webhook(f"{WEBHOOK_URL}/webhook", allowed_updates=["message", "callback_query"])
 
 @app.on_event("shutdown")
 async def on_shutdown():
     await bot.delete_webhook()
+    await bot.session.close()  # правильно закрываем сессию здесь
 
 @app.post("/webhook")
-async def webhook(request: Request):
+async def webhook(request: Request, background_tasks: BackgroundTasks):
     update_json = await request.json()
-    update = types.Update(**update_json)
-    await dp.feed_update(bot, update)
+    update = Update(**update_json)
+    await dp.feed_update(bot, update, background_tasks=background_tasks)
     return {"ok": True}
 
 if __name__ == "__main__":

@@ -86,7 +86,7 @@ async def get_special_requests(message: types.Message, state: FSMContext):
 
 
 async def generate_and_send_itinerary(user_id: int, chat_id: int, data: dict):
-    bot = Bot(token=TELEGRAM_TOKEN)  # создание бота здесь
+    bot = Bot(token=TELEGRAM_TOKEN)
     try:
         itinerary = await generate_itinerary(data)
 
@@ -115,9 +115,6 @@ async def generate_and_send_itinerary(user_id: int, chat_id: int, data: dict):
         await bot.send_message(chat_id, f"⚠️ Произошла ошибка: {e}")
 
     finally:
-        storage_key = StorageKey(bot_id=bot.id, chat_id=chat_id, user_id=user_id)
-        await bot.session.fsm.storage.set_state(storage_key, None)
-        await bot.session.fsm.storage.set_data(storage_key, {})
         await bot.session.close()
 
 # Обработка нажатия кнопки "Редактировать день"

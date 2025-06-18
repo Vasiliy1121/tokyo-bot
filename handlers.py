@@ -72,13 +72,14 @@ async def get_food(message: types.Message, state: FSMContext):
 async def get_special_requests(message: types.Message, state: FSMContext, background_tasks: BackgroundTasks):
     await state.update_data(special_requests=message.text)
     data = await state.get_data()
-    await state.clear()
 
     await message.answer("⏳ Пожалуйста, подожди примерно 1–2 минуты — я генерирую твой подробный маршрут по Токио…")
 
-    background_tasks.add_task(generate_and_send_itinerary, bot, message.from_user.id, data)
+    # Запускаем фоновую задачу, передаём state
+    background_tasks.add_task(generate_and_send_itinerary, bot, message.from_user.id, data, state)
 
-async def generate_and_send_itinerary(bot: Bot, user_id: int, data: dict):
+
+async def generate_and_send_itinerary(bot: Bot, user_id: int, data: dict, state: FSMContext):
     try:
         itinerary = await generate_itinerary(data)
 
@@ -105,6 +106,10 @@ async def generate_and_send_itinerary(bot: Bot, user_id: int, data: dict):
 
     except Exception as e:
         await bot.send_message(user_id, f"⚠️ Произошла ошибка: {e}")
+
+    finally:
+        # Очистка состояния должна быть именно тут, после фоновой задачи
+        await state.clear()
 
 # Обработка нажатия кнопки "Редактировать день"
 @router.callback_query(F.data == "edit_day")

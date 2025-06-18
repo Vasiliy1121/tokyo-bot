@@ -76,7 +76,7 @@ async def get_food(message: types.Message, state: FSMContext):
 # Сбор особых пожеланий и генерация маршрута
 
 @router.message(TripStates.waiting_special_requests)
-async def get_special_requests(message: types.Message, state: FSMContext, background_tasks: BackgroundTasks):
+async def get_special_requests(message: types.Message, state: FSMContext):
     await state.update_data(special_requests=message.text)
     data = await state.get_data()
 
@@ -85,10 +85,12 @@ async def get_special_requests(message: types.Message, state: FSMContext, backgr
     user_id = message.from_user.id
     chat_id = message.chat.id
 
-    background_tasks.add_task(generate_and_send_itinerary, user_id, chat_id, data)
+    # запускаем асинхронную задачу через asyncio.create_task
+    asyncio.create_task(generate_and_send_itinerary(user_id, chat_id, data))
 
     # Очистка состояния FSM здесь!
     await state.clear()
+
 
 
 async def generate_and_send_itinerary(user_id: int, chat_id: int, data: dict):

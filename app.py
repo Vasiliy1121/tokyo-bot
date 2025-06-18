@@ -1,16 +1,35 @@
-import asyncio
-from aiogram import Bot, Dispatcher
+import os
+from aiogram import Bot, Dispatcher, types
+from aiogram.client.session.aiohttp import AiohttpSession
+from fastapi import FastAPI
+import uvicorn
 from config import TELEGRAM_TOKEN
 from handlers import router
-from aiogram.client.session.aiohttp import AiohttpSession
 
+# Настройки бота
 session = AiohttpSession(timeout=120)
 bot = Bot(token=TELEGRAM_TOKEN, session=session)
 dp = Dispatcher()
 dp.include_router(router)
 
-async def main():
-    await dp.start_polling(bot)
+# FastAPI приложение
+app = FastAPI()
+
+WEBHOOK_URL = os.getenv("https://tokyo-bot-wr2x.onrender.com")  # должен быть URL твоего приложения на Render.com
+
+@app.on_event("startup")
+async def on_startup():
+    await bot.set_webhook(f"{WEBHOOK_URL}/webhook")
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    await bot.delete_webhook()
+
+@app.post("/webhook")
+async def webhook(update: dict):
+    telegram_update = types.Update(**update)
+    await dp.feed_update(bot, telegram_update)
+    return {"ok": True}
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    uvicorn.run("app:app", host="0.0.0.0", port=8000)

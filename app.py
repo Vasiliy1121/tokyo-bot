@@ -5,6 +5,7 @@ from fastapi import FastAPI
 import uvicorn
 from config import TELEGRAM_TOKEN
 from handlers import router
+import json
 
 # Настройки бота
 session = AiohttpSession(timeout=120)
@@ -28,7 +29,7 @@ async def on_shutdown():
 @app.post("/webhook")
 async def webhook(update: dict):
     telegram_update = types.Update(**update)
-    print(f"🔵 Получен запрос от Telegram: {telegram_update.json(indent=4)}")
+    print("🔵 Получен запрос от Telegram:", json.dumps(update, indent=4, ensure_ascii=False))
     await dp.feed_update(bot, telegram_update)
     return {"ok": True}
 

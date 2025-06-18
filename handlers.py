@@ -14,6 +14,7 @@ from pdf_export import itinerary_to_pdf
 from states import TripStates
 from utils import edit_day_keyboard, itinerary_keyboard, split_message
 import asyncio
+from app import bot
 
 router = Router()
 user_itineraries = {}  # хранилище маршрутов пользователей
@@ -82,11 +83,11 @@ async def get_special_requests(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     chat_id = message.chat.id
 
-    asyncio.create_task(generate_and_send_itinerary(user_id, chat_id, data))
+    asyncio.create_task(generate_and_send_itinerary(bot, user_id, chat_id, data))
 
 
-async def generate_and_send_itinerary(user_id: int, chat_id: int, data: dict):
-    bot = Bot(token=TELEGRAM_TOKEN)
+async def generate_and_send_itinerary(bot: Bot, user_id: int, chat_id: int, data: dict):
+
     try:
         itinerary = await generate_itinerary(data)
 

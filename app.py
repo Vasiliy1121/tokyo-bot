@@ -15,7 +15,7 @@ dp.include_router(router)
 # FastAPI приложение
 app = FastAPI()
 
-WEBHOOK_URL = os.getenv("https://tokyo-bot-wr2x.onrender.com")  # должен быть URL твоего приложения на Render.com
+WEBHOOK_URL = os.getenv("RENDER_EXTERNAL_URL")  
 
 @app.on_event("startup")
 async def on_startup():

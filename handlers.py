@@ -336,7 +336,7 @@ async def export_pdf(message: types.Message):
     os.remove(pdf_filename)  # удаляем файл после отправки
 
 
-@@router.callback_query(F.data.startswith("delete_route_"))
+@router.callback_query(F.data.startswith("delete_route_"))
 async def handle_delete_route(callback: types.CallbackQuery):
     route_id = int(callback.data.split("_")[-1])
 

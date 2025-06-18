@@ -76,34 +76,27 @@ async def get_food(message: types.Message, state: FSMContext):
 # Сбор особых пожеланий и генерация маршрута
 
 @router.message(TripStates.waiting_special_requests)
-async def get_special_requests(message: types.Message, state: FSMContext):
+async def get_special_requests(message: types.Message, state: FSMContext, background_tasks: BackgroundTasks):
     await state.update_data(special_requests=message.text)
     data = await state.get_data()
 
-    await message.answer("⏳ Пожалуйста, подожди примерно 1–2 минуты — я генерирую твой маршрут…")
+    await message.answer("⏳ Генерирую твой маршрут…")
 
     user_id = message.from_user.id
     chat_id = message.chat.id
 
-    # Запуск фоновой задачи
-    asyncio.create_task(generate_and_send_itinerary(user_id, chat_id, data))
+    background_tasks.add_task(generate_and_send_itinerary, user_id, chat_id, data)
 
-    # Немедленно очищаем состояние, не дожидаясь задачи
     await state.clear()
-
-
-
 
 async def generate_and_send_itinerary(user_id: int, chat_id: int, data: dict):
     bot = Bot(token=TELEGRAM_TOKEN)
     try:
         itinerary = await generate_itinerary(data)
-
         itinerary_entry = {
             'name': f"Маршрут от {datetime.datetime.now():%Y-%m-%d %H:%M}",
             'itinerary': itinerary
         }
-
         with db:
             user, _ = User.get_or_create(user_id=user_id)
             Route.create(
@@ -112,17 +105,12 @@ async def generate_and_send_itinerary(user_id: int, chat_id: int, data: dict):
                 itinerary=itinerary,
                 created_at=datetime.datetime.now()
             )
-
         messages = split_message(itinerary)
-
         for part in messages[:-1]:
             await bot.send_message(chat_id, part, parse_mode="Markdown")
-
         await bot.send_message(chat_id, messages[-1], reply_markup=itinerary_keyboard(), parse_mode="Markdown")
-
     except Exception as e:
         await bot.send_message(chat_id, f"⚠️ Ошибка: {e}")
-
     finally:
         await bot.session.close()
 

@@ -1,8 +1,13 @@
+# app.py
 import os
 from fastapi import FastAPI, Request, BackgroundTasks
 import uvicorn
 from aiogram.types import Update
 from bot_init import bot, dp
+
+# Подключаем router здесь
+from handlers import router
+dp.include_router(router)
 
 app = FastAPI()
 WEBHOOK_URL = os.getenv("RENDER_EXTERNAL_URL")
@@ -14,7 +19,7 @@ async def on_startup():
 @app.on_event("shutdown")
 async def on_shutdown():
     await bot.delete_webhook()
-    await bot.session.close()  # правильно закрываем сессию здесь
+    await bot.session.close()
 
 @app.post("/webhook")
 async def webhook(request: Request, background_tasks: BackgroundTasks):

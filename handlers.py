@@ -14,7 +14,7 @@ from pdf_export import itinerary_to_pdf
 from states import TripStates
 from utils import edit_day_keyboard, itinerary_keyboard, split_message
 import asyncio
-from app import bot
+from telegram_bot import bot
 
 router = Router()
 user_itineraries = {}  # хранилище маршрутов пользователей

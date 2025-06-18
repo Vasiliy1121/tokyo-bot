@@ -6,10 +6,11 @@ from fastapi import FastAPI, Request, BackgroundTasks
 import uvicorn
 from config import TELEGRAM_TOKEN
 from handlers import router
+from telegram_bot import bot
 
 
 session = AiohttpSession(timeout=120)
-bot = Bot(token=TELEGRAM_TOKEN, session=session)
+
 dp = Dispatcher()
 dp.include_router(router)
 

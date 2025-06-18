@@ -111,6 +111,8 @@ async def get_special_requests(message: types.Message, state: FSMContext):
 # Обработка нажатия кнопки "Редактировать день"
 @router.callback_query(F.data == "edit_day")
 async def edit_day_handler(callback: types.CallbackQuery):
+    print("⚠️ Сработал обработчик edit_day")
+    await callback.answer()
     user_id = callback.from_user.id
 
     with db:
@@ -338,39 +340,39 @@ async def delete_route_command(message: types.Message):
     db.close()
 
 
-@router.message(Command("export_pdf"))
-async def export_pdf(message: types.Message):
-    user_id = message.from_user.id
+@router.callback_query(F.data == "export_pdf")
+async def export_pdf_callback_handler(callback: types.CallbackQuery):
+    print("⚠️ Сработал обработчик export_pdf")
+    await callback.answer("Генерирую PDF...")
 
-    db.connect()
-    user = User.get_or_none(user_id=user_id)
+    user_id = callback.from_user.id
+    with db:
+        user = User.get_or_none(user_id=user_id)
 
-    if user is None:
-        await message.answer("⚠️ Маршрут не найден.")
-        db.close()
-        return
+        if user is None:
+            await callback.message.answer("⚠️ Маршрут не найден.")
+            return
 
-    itinerary_entry = Route.select().where(Route.user == user).order_by(Route.created_at.desc()).first()
+        itinerary_entry = Route.select().where(Route.user == user).order_by(Route.created_at.desc()).first()
 
-    if itinerary_entry is None:
-        await message.answer("⚠️ Маршрут не найден.")
-        db.close()
-        return
+        if itinerary_entry is None:
+            await callback.message.answer("⚠️ Маршрут не найден.")
+            return
 
-    itinerary_text = itinerary_entry.itinerary
-    db.close()
+        itinerary_text = itinerary_entry.itinerary
 
     pdf_filename = f"itinerary_{user_id}.pdf"
     itinerary_to_pdf(itinerary_text, pdf_filename)
 
-    pdf_file = FSInputFile(pdf_filename)  # правильно упаковываем файл для отправки
-    await message.answer_document(pdf_file)
-
-    os.remove(pdf_filename)  # удаляем файл после отправки
+    pdf_file = FSInputFile(pdf_filename)
+    await callback.message.answer_document(pdf_file)
+    os.remove(pdf_filename)
 
 
 @router.callback_query(F.data.startswith("delete_route_"))
 async def handle_delete_route(callback: types.CallbackQuery):
+    print("⚠️ Сработал обработчик delete_route")
+    await callback.answer()
     route_id = int(callback.data.split("_")[-1])
 
     db.connect()

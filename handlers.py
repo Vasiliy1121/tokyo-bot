@@ -87,11 +87,12 @@ async def get_special_requests(message: types.Message, state: FSMContext):
 
     asyncio.create_task(generate_and_send_itinerary(user_id, chat_id, data))
 
-    await state.clear()
 
 
 
-async def generate_and_send_itinerary(user_id: int, chat_id: int, data: dict):
+async def generate_and_send_itinerary(user_id, chat_id, state: FSMContext):
+    data = await state.get_data()  # Получаем данные тут!
+
     try:
         itinerary = await generate_itinerary(data)
 
@@ -101,7 +102,7 @@ async def generate_and_send_itinerary(user_id: int, chat_id: int, data: dict):
         }
 
         with db:
-            user, created = User.get_or_create(user_id=user_id)
+            user, _ = User.get_or_create(user_id=user_id)
             Route.create(
                 user=user,
                 name=itinerary_entry['name'],
@@ -117,10 +118,11 @@ async def generate_and_send_itinerary(user_id: int, chat_id: int, data: dict):
         await bot.send_message(chat_id, messages[-1], reply_markup=itinerary_keyboard(), parse_mode="Markdown")
 
     except Exception as e:
-        await bot.send_message(chat_id, f"⚠️ Произошла ошибка: {e}")
+        await bot.send_message(chat_id, f"⚠️ Ошибка: {e}")
 
     finally:
-        await bot.session.close()
+        await state.clear()  # Очищаем FSM только тут
+
 
 
 # Обработка нажатия кнопки "Редактировать день"

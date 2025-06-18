@@ -1,6 +1,8 @@
 import datetime
 import os
 
+from fastapi import BackgroundTasks
+
 from aiogram import Bot, F, Router, types
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext

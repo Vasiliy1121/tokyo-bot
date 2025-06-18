@@ -94,7 +94,6 @@ async def get_special_requests(message: types.Message, state: FSMContext):
 
 
 async def generate_and_send_itinerary(user_id: int, chat_id: int, data: dict):
-    bot = Bot(token=TELEGRAM_TOKEN)
     try:
         itinerary = await generate_itinerary(data)
 

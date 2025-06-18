@@ -23,9 +23,13 @@ async def cmd_start(message: types.Message, state: FSMContext):
 # Сбор количества дней
 @router.message(TripStates.waiting_days)
 async def get_days(message: types.Message, state: FSMContext):
+    """
+    Сохраняет введенное пользователем количество дней в FSM и спрашивает про состав путешественников.
+    """
     await state.update_data(days=message.text)
     await state.set_state(TripStates.waiting_travelers)
     await message.answer("👥 Кто едет с тобой? (один, пара, семья с детьми, друзья…)")
+
 
 # Сбор состава путешественников
 @router.message(TripStates.waiting_travelers)
@@ -109,23 +113,18 @@ async def get_special_requests(message: types.Message, state: FSMContext):
 async def edit_day_handler(callback: types.CallbackQuery):
     user_id = callback.from_user.id
 
-    db.connect()
-    user = User.get_or_none(user_id=user_id)
+    with db:
+        user = User.get_or_none(user_id=user_id)
 
-    if user is None:
-        await callback.answer("Маршрут не найден.")
-        db.close()
-        return
+        if user is None:
+            await message.answer("⚠️ Маршрут не найден.")
+            return
 
-    itinerary_entry = Route.select().where(Route.user == user).order_by(Route.created_at.desc()).first()
+        routes = Route.select().where(Route.user == user).order_by(Route.created_at.desc())
 
-    if itinerary_entry is None:
-        await callback.answer("Маршрут не найден.")
-        db.close()
-        return
-
-    itinerary = itinerary_entry.itinerary
-    db.close()
+        if not routes.exists():
+            await message.answer("📌 У тебя пока нет сохранённых маршрутов.")
+            return
 
     await callback.message.answer("Выбери день:", reply_markup=edit_day_keyboard(itinerary))
     await callback.answer()
@@ -255,42 +254,56 @@ async def show_saved_routes(message: types.Message):
 @router.callback_query(F.data.startswith("show_route_"))
 async def handle_show_route(callback: types.CallbackQuery):
     route_id = int(callback.data.split("_")[-1])
+    user_id = callback.from_user.id
 
     db.connect()
-    route = Route.get_or_none(Route.id == route_id)
+    route = Route.get_or_none(Route.id == route_id, Route.user.user_id == user_id)
 
     if route is None:
-        await callback.answer("⚠️ Маршрут не найден.")
+        await callback.answer("⚠️ Маршрут не найден или недоступен.")
         db.close()
         return
 
     itinerary = route.itinerary
-    messages = split_message(itinerary)
+    db.close()
 
+    messages = split_message(itinerary)
     for part in messages[:-1]:
         await callback.message.answer(part, parse_mode="Markdown")
 
     await callback.message.answer(messages[-1], reply_markup=itinerary_keyboard(), parse_mode="Markdown")
-    db.close()
     await callback.answer()
+
 
 
 @router.message(Command("delete_route"))
 async def delete_route_command(message: types.Message):
     user_id = message.from_user.id
-    itineraries = user_itineraries.get(user_id, [])
 
-    if not itineraries:
+    db.connect()
+    user = User.get_or_none(user_id=user_id)
+
+    if user is None:
         await message.answer("📌 У тебя пока нет маршрутов для удаления.")
+        db.close()
+        return
+
+    routes = Route.select().where(Route.user == user).order_by(Route.created_at.desc())
+
+    if not routes.exists():
+        await message.answer("📌 У тебя пока нет маршрутов для удаления.")
+        db.close()
         return
 
     buttons = [
-        [InlineKeyboardButton(text=f"🗑️ {itinerary['name']}", callback_data=f"delete_route_{idx}")]
-        for idx, itinerary in enumerate(itineraries)
+        [InlineKeyboardButton(text=f"🗑️ {route.name}", callback_data=f"delete_route_{route.id}")]
+        for route in routes
     ]
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
 
     await message.answer("🗑️ Выбери маршрут, который хочешь удалить:", reply_markup=keyboard)
+    db.close()
+
 
 @router.message(Command("export_pdf"))
 async def export_pdf(message: types.Message):
@@ -323,47 +336,21 @@ async def export_pdf(message: types.Message):
     os.remove(pdf_filename)  # удаляем файл после отправки
 
 
-@router.callback_query(F.data.startswith("delete_route_"))
+@@router.callback_query(F.data.startswith("delete_route_"))
 async def handle_delete_route(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    idx = int(callback.data.split("_")[-1])
-
-    itineraries = user_itineraries.get(user_id, [])
-
-    if idx >= len(itineraries):
-        await callback.answer("⚠️ Маршрут не найден.")
-        return
-
-    deleted_name = itineraries.pop(idx)['name']
-    await callback.message.answer(f"✅ Маршрут «{deleted_name}» удалён.")
-    await callback.answer()
-
-@router.message(Command("export_pdf"))
-async def export_pdf(message: types.Message):
-    user_id = message.from_user.id
+    route_id = int(callback.data.split("_")[-1])
 
     db.connect()
-    user = User.get_or_none(user_id=user_id)
+    route = Route.get_or_none(Route.id == route_id)
 
-    if user is None:
-        await message.answer("⚠️ Маршрут не найден.")
+    if route is None:
+        await callback.answer("⚠️ Маршрут не найден.")
         db.close()
         return
 
-    itinerary_entry = Route.select().where(Route.user == user).order_by(Route.created_at.desc()).first()
-
-    if itinerary_entry is None:
-        await message.answer("⚠️ Маршрут не найден.")
-        db.close()
-        return
-
-    itinerary_text = itinerary_entry.itinerary
+    route_name = route.name
+    route.delete_instance()
     db.close()
 
-    pdf_filename = f"itinerary_{user_id}.pdf"
-    itinerary_to_pdf(itinerary_text, pdf_filename)
-
-    with open(pdf_filename, "rb") as pdf_file:
-        await message.answer_document(pdf_file)
-
-    os.remove(pdf_filename)  # удаляем файл после отправки
+    await callback.message.answer(f"✅ Маршрут «{route_name}» удалён.")
+    await callback.answer()

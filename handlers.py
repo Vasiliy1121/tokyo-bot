@@ -117,17 +117,22 @@ async def edit_day_handler(callback: types.CallbackQuery):
         user = User.get_or_none(user_id=user_id)
 
         if user is None:
-            await message.answer("⚠️ Маршрут не найден.")
+            await callback.message.answer("⚠️ Маршрут не найден.")
+            await callback.answer()
             return
 
-        routes = Route.select().where(Route.user == user).order_by(Route.created_at.desc())
+        itinerary_entry = Route.select().where(Route.user == user).order_by(Route.created_at.desc()).first()
 
-        if not routes.exists():
-            await message.answer("📌 У тебя пока нет сохранённых маршрутов.")
+        if itinerary_entry is None:
+            await callback.message.answer("📌 У тебя пока нет сохранённых маршрутов.")
+            await callback.answer()
             return
+
+        itinerary = itinerary_entry.itinerary  # ← Вот тут явно получаем itinerary из базы
 
     await callback.message.answer("Выбери день:", reply_markup=edit_day_keyboard(itinerary))
     await callback.answer()
+
 
 
 # Обработка выбора дня для редактирования

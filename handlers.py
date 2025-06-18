@@ -10,6 +10,7 @@ import datetime
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
 from pdf_export import itinerary_to_pdf
 import os
+from fastapi import BackgroundTasks
 
 router = Router()
 user_itineraries = {}  # хранилище маршрутов пользователей
@@ -68,45 +69,42 @@ async def get_food(message: types.Message, state: FSMContext):
 
 # Сбор особых пожеланий и генерация маршрута
 @router.message(TripStates.waiting_special_requests)
-async def get_special_requests(message: types.Message, state: FSMContext):
+async def get_special_requests(message: types.Message, state: FSMContext, background_tasks: BackgroundTasks):
     await state.update_data(special_requests=message.text)
     data = await state.get_data()
+    await state.clear()
 
     await message.answer("⏳ Пожалуйста, подожди примерно 1–2 минуты — я генерирую твой подробный маршрут по Токио…")
 
+    background_tasks.add_task(generate_and_send_itinerary, bot, message.from_user.id, data)
+
+async def generate_and_send_itinerary(bot: Bot, user_id: int, data: dict):
     try:
         itinerary = await generate_itinerary(data)
 
-        # Сохраняем маршрут с уникальным названием
         itinerary_entry = {
             'name': f"Маршрут от {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}",
             'itinerary': itinerary
         }
 
-        # Сохранение в базу SQLite
-        db.connect()
-        user, created = User.get_or_create(user_id=message.from_user.id)
-
-        Route.create(
-            user=user,
-            name=f"Маршрут от {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}",
-            itinerary=itinerary,
-            created_at=datetime.datetime.now()
-        )
-        db.close()
+        with db:
+            user, created = User.get_or_create(user_id=user_id)
+            Route.create(
+                user=user,
+                name=itinerary_entry['name'],
+                itinerary=itinerary,
+                created_at=datetime.datetime.now()
+            )
 
         messages = split_message(itinerary)
 
         for part in messages[:-1]:
-            await message.answer(part, parse_mode="Markdown")
+            await bot.send_message(user_id, part, parse_mode="Markdown")
 
-        await message.answer(messages[-1], reply_markup=itinerary_keyboard(), parse_mode="Markdown")
+        await bot.send_message(user_id, messages[-1], reply_markup=itinerary_keyboard(), parse_mode="Markdown")
 
     except Exception as e:
-        await message.answer(f"⚠️ Произошла ошибка: {e}")
-        print(f"Ошибка при генерации маршрута: {e}")
-
-    await state.clear()
+        await bot.send_message(user_id, f"⚠️ Произошла ошибка: {e}")
 
 # Обработка нажатия кнопки "Редактировать день"
 @router.callback_query(F.data == "edit_day")

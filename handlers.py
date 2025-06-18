@@ -80,19 +80,22 @@ async def get_special_requests(message: types.Message, state: FSMContext):
     await state.update_data(special_requests=message.text)
     data = await state.get_data()
 
-    await message.answer("⏳ Подожди 1–2 минуты — генерирую маршрут...")
+    await message.answer("⏳ Пожалуйста, подожди примерно 1–2 минуты — я генерирую твой маршрут…")
 
     user_id = message.from_user.id
     chat_id = message.chat.id
 
-    asyncio.create_task(generate_and_send_itinerary(user_id, chat_id, state))
+    # Запуск фоновой задачи
+    asyncio.create_task(generate_and_send_itinerary(user_id, chat_id, data))
+
+    # Немедленно очищаем состояние, не дожидаясь задачи
+    await state.clear()
 
 
 
 
-async def generate_and_send_itinerary(user_id: int, chat_id: int, state: FSMContext):
-    data = await state.get_data()
-
+async def generate_and_send_itinerary(user_id: int, chat_id: int, data: dict):
+    bot = Bot(token=TELEGRAM_TOKEN)
     try:
         itinerary = await generate_itinerary(data)
 
@@ -121,7 +124,7 @@ async def generate_and_send_itinerary(user_id: int, chat_id: int, state: FSMCont
         await bot.send_message(chat_id, f"⚠️ Ошибка: {e}")
 
     finally:
-        await state.clear()  # Очищаем FSM
+        await bot.session.close()
 
 
 
